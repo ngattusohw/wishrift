@@ -163,7 +163,7 @@ const AddItemModal = ({ wishlistId, children }: AddItemModalProps) => {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>{children}</DialogTrigger>
-      <DialogContent className="sm:max-w-[650px]">
+      <DialogContent className="sm:max-w-[650px] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Add New Item to Wish List</DialogTitle>
           <DialogDescription>
@@ -183,11 +183,11 @@ const AddItemModal = ({ wishlistId, children }: AddItemModalProps) => {
             </TabsTrigger>
           </TabsList>
           
-          <TabsContent value="search" className="mt-4 space-y-4">
+          <TabsContent value="search" className="mt-4 space-y-4 max-h-[calc(85vh-120px)] overflow-y-auto pr-2">
             <ProductSearch onSelectProduct={handleProductSelect} />
           </TabsContent>
           
-          <TabsContent value="manual">
+          <TabsContent value="manual" className="max-h-[calc(85vh-120px)] overflow-y-auto pr-2">
             <Form {...form}>
               <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4 mt-4">
                 <FormField
