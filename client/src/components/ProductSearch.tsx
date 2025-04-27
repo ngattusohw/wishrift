@@ -140,8 +140,39 @@ export function ProductSearch({ onSelectProduct }: ProductSearchProps) {
       )}
       
       {!isPending && query && results.length === 0 && (
-        <div className="text-center py-8 text-muted-foreground">
-          No products found. Try a different search term or add manually.
+        <div className="flex flex-col items-center justify-center py-8 space-y-4">
+          <div className="rounded-full bg-muted p-4">
+            <Search className="h-8 w-8 text-muted-foreground" />
+          </div>
+          <div className="text-center space-y-2">
+            <h3 className="font-medium">No products found</h3>
+            <p className="text-sm text-muted-foreground max-w-xs mx-auto">
+              Try a different search term or add your item manually using the "Add Manually" tab.
+            </p>
+          </div>
+          <Button 
+            variant="outline" 
+            onClick={() => setQuery("")}
+            size="sm"
+            className="mt-2"
+          >
+            Clear Search
+          </Button>
+        </div>
+      )}
+      
+      {!isPending && !query && results.length === 0 && (
+        <div className="flex flex-col items-center justify-center py-8 space-y-4">
+          <div className="rounded-full bg-muted p-4">
+            <ShoppingCart className="h-8 w-8 text-muted-foreground" />
+          </div>
+          <div className="text-center space-y-2">
+            <h3 className="font-medium">Search for products</h3>
+            <p className="text-sm text-muted-foreground max-w-xs mx-auto">
+              Enter a product name above to search across multiple retailers.
+              Try searching for "PlayStation 5", "Xbox Series X", or "iPad".
+            </p>
+          </div>
         </div>
       )}
     </div>
