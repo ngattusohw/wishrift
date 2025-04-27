@@ -7,21 +7,38 @@ import {
   insertWishListSchema, 
   insertWishListItemSchema,
   insertPriceAlertSchema,
-  insertPriceHistorySchema
+  insertPriceHistorySchema,
+  insertProductListingSchema
 } from "@shared/schema";
+import { setupAuth, isAuthenticated } from "./replitAuth";
+import { scrapeProductListings, savePriceHistory } from "./productScraper";
 
 export async function registerRoutes(app: Express): Promise<Server> {
+  // Auth middleware
+  await setupAuth(app);
+
+  // Auth routes
+  app.get('/api/auth/user', isAuthenticated, async (req: any, res) => {
+    try {
+      const userId = req.user.claims.sub;
+      const user = await storage.getUser(userId);
+      res.json(user);
+    } catch (error) {
+      console.error("Error fetching user:", error);
+      res.status(500).json({ message: "Failed to fetch user" });
+    }
+  });
+  
   // API routes
   
   // WishLists
-  app.get("/api/wishlists", async (req, res) => {
-    // For MVP we don't have authentication, so we'll use a demo user
-    const userId = 1;
+  app.get("/api/wishlists", isAuthenticated, async (req: any, res) => {
+    const userId = req.user.claims.sub;
     const wishlists = await storage.getWishLists(userId);
     res.json(wishlists);
   });
   
-  app.get("/api/wishlists/:id", async (req, res) => {
+  app.get("/api/wishlists/:id", isAuthenticated, async (req, res) => {
     const { id } = req.params;
     const wishlist = await storage.getWishList(Number(id));
     
@@ -32,9 +49,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(wishlist);
   });
   
-  app.post("/api/wishlists", async (req, res) => {
+  app.post("/api/wishlists", isAuthenticated, async (req: any, res) => {
     try {
-      const userId = 1; // Demo user
+      const userId = req.user.claims.sub;
       const wishlistData = insertWishListSchema.parse({
         ...req.body,
         userId,
@@ -51,7 +68,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.put("/api/wishlists/:id", async (req, res) => {
+  app.put("/api/wishlists/:id", isAuthenticated, async (req, res) => {
     const { id } = req.params;
     
     try {
@@ -72,7 +89,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.delete("/api/wishlists/:id", async (req, res) => {
+  app.delete("/api/wishlists/:id", isAuthenticated, async (req, res) => {
     const { id } = req.params;
     const deleted = await storage.deleteWishList(Number(id));
     
@@ -101,7 +118,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(item);
   });
   
-  app.post("/api/wishlists/:wishlistId/items", async (req, res) => {
+  app.post("/api/wishlists/:wishlistId/items", isAuthenticated, async (req, res) => {
     const { wishlistId } = req.params;
     
     try {
@@ -133,7 +150,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.put("/api/items/:id", async (req, res) => {
+  app.put("/api/items/:id", isAuthenticated, async (req, res) => {
     const { id } = req.params;
     
     try {
@@ -163,7 +180,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.delete("/api/items/:id", async (req, res) => {
+  app.delete("/api/items/:id", isAuthenticated, async (req, res) => {
     const { id } = req.params;
     const deleted = await storage.deleteWishListItem(Number(id));
     
@@ -174,6 +191,65 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(204).send();
   });
   
+  // Product Scraping
+  app.post("/api/items/search", isAuthenticated, async (req, res) => {
+    const { query } = req.body;
+    
+    if (!query || typeof query !== 'string') {
+      return res.status(400).json({ message: "Search query is required" });
+    }
+    
+    try {
+      // Scrape product listings with our mock data
+      const listings = await scrapeProductListings(query, 0);
+      res.json(listings);
+    } catch (error) {
+      console.error('Error scraping products:', error);
+      res.status(500).json({ message: "Failed to search for products" });
+    }
+  });
+  
+  app.post("/api/items/:itemId/scrape", isAuthenticated, async (req, res) => {
+    const { itemId } = req.params;
+    
+    try {
+      const item = await storage.getWishListItem(Number(itemId));
+      if (!item) {
+        return res.status(404).json({ message: "Item not found" });
+      }
+      
+      // Scrape data for this item
+      const scrapedProducts = await scrapeProductListings(item.name, item.id);
+      
+      // Save the products and price history
+      await savePriceHistory(scrapedProducts, item.id);
+      
+      // Get the updated item
+      const updatedItem = await storage.getWishListItem(Number(itemId));
+      
+      // Return both the scraped products and the updated item
+      res.json({
+        products: scrapedProducts,
+        item: updatedItem
+      });
+    } catch (error) {
+      console.error('Error processing scraped products:', error);
+      res.status(500).json({ message: "Failed to process scraped products" });
+    }
+  });
+  
+  app.get("/api/items/:itemId/listings", async (req, res) => {
+    const { itemId } = req.params;
+    
+    try {
+      const listings = await storage.getProductListings(Number(itemId));
+      res.json(listings);
+    } catch (error) {
+      console.error('Error fetching product listings:', error);
+      res.status(500).json({ message: "Failed to fetch product listings" });
+    }
+  });
+  
   // Price History
   app.get("/api/items/:itemId/history", async (req, res) => {
     const { itemId } = req.params;
@@ -181,7 +257,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(history);
   });
   
-  app.post("/api/items/:itemId/history", async (req, res) => {
+  app.post("/api/items/:itemId/history", isAuthenticated, async (req, res) => {
     const { itemId } = req.params;
     
     try {
@@ -212,7 +288,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.json(alerts);
   });
   
-  app.post("/api/items/:itemId/alerts", async (req, res) => {
+  app.post("/api/items/:itemId/alerts", isAuthenticated, async (req, res) => {
     const { itemId } = req.params;
     
     try {
@@ -236,7 +312,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.put("/api/alerts/:id", async (req, res) => {
+  app.put("/api/alerts/:id", isAuthenticated, async (req, res) => {
     const { id } = req.params;
     
     try {
@@ -257,7 +333,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
   
-  app.delete("/api/alerts/:id", async (req, res) => {
+  app.delete("/api/alerts/:id", isAuthenticated, async (req, res) => {
     const { id } = req.params;
     const deleted = await storage.deletePriceAlert(Number(id));
     
@@ -285,9 +361,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
     });
   });
   
-  app.get("/api/shared-with-me", async (req, res) => {
-    // For MVP, use demo user
-    const userId = 1;
+  app.get("/api/shared-with-me", isAuthenticated, async (req: any, res) => {
+    const userId = req.user.claims.sub;
     const sharedLists = await storage.getSharedWithMe(userId);
     
     res.json(sharedLists);
