@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { Search, Loader2 } from "lucide-react";
+import { Search, Loader2, ExternalLink, Store, ShoppingCart } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardFooter } from "@/components/ui/card";
+import { Badge } from "@/components/ui/badge";
 import { apiRequest } from "@/lib/queryClient";
+import { Skeleton } from "@/components/ui/skeleton";
 
 interface ProductSearchProps {
   onSelectProduct: (product: any) => void;
@@ -73,37 +75,64 @@ export function ProductSearch({ onSelectProduct }: ProductSearchProps) {
       
       {!isPending && results.length > 0 && (
         <div className="space-y-2">
-          <h3 className="text-sm font-medium text-muted-foreground">Found {results.length} results across {new Set(results.map(r => r.store)).size} retailers</h3>
+          <div className="flex items-center gap-2">
+            <ShoppingCart className="h-4 w-4 text-primary" />
+            <h3 className="text-sm font-medium">
+              Found <span className="text-primary font-bold">{results.length}</span> results across <span className="text-primary font-bold">{new Set(results.map(r => r.store)).size}</span> retailers
+            </h3>
+          </div>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
             {results.map((product, index) => (
-              <Card key={index} className="overflow-hidden hover:shadow-md transition-shadow">
+              <Card key={index} className="overflow-hidden hover:shadow-md transition-shadow border-muted">
                 <CardContent className="p-0">
                   <div className="relative pb-[56.25%] bg-muted">
-                    {product.imageUrl && (
+                    {product.imageUrl ? (
                       <img 
                         src={product.imageUrl} 
                         alt={product.name} 
                         className="absolute inset-0 w-full h-full object-cover"
                       />
+                    ) : (
+                      <div className="absolute inset-0 flex items-center justify-center">
+                        <Skeleton className="w-full h-full" />
+                      </div>
                     )}
-                    <div className="absolute top-2 right-2 bg-secondary text-white px-2 py-1 rounded text-xs font-medium">
+                    <Badge className="absolute top-2 right-2" variant="secondary">
+                      <Store className="h-3 w-3 mr-1" />
                       {product.store}
-                    </div>
+                    </Badge>
+                    {!product.isAvailable && (
+                      <Badge className="absolute top-2 left-2" variant="destructive">
+                        Out of stock
+                      </Badge>
+                    )}
                   </div>
                   <div className="p-4 space-y-2">
-                    <h3 className="font-medium text-sm line-clamp-2">{product.name}</h3>
-                    <div className="flex justify-between items-center">
-                      <span className="font-bold text-primary">{formatPrice(product.price)}</span>
-                      <Button 
-                        variant="outline" 
-                        size="sm"
-                        onClick={() => onSelectProduct(product)}
+                    <h3 className="font-medium text-sm line-clamp-2 h-10">{product.name}</h3>
+                    <div className="flex justify-between items-center mt-2">
+                      <span className="font-bold text-lg text-primary">{formatPrice(product.price)}</span>
+                      <a 
+                        href={product.productUrl} 
+                        target="_blank" 
+                        rel="noopener noreferrer" 
+                        className="text-xs text-muted-foreground flex items-center hover:text-primary"
                       >
-                        Select
-                      </Button>
+                        View <ExternalLink className="h-3 w-3 ml-1" />
+                      </a>
                     </div>
                   </div>
                 </CardContent>
+                <CardFooter className="px-4 py-3 bg-muted/20 border-t">
+                  <Button 
+                    className="w-full"
+                    variant="default" 
+                    size="sm"
+                    onClick={() => onSelectProduct(product)}
+                    disabled={!product.isAvailable}
+                  >
+                    {product.isAvailable ? "Add to Wishlist" : "Out of Stock"}
+                  </Button>
+                </CardFooter>
               </Card>
             ))}
           </div>

@@ -192,7 +192,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
   
   // Product Scraping
-  app.post("/api/items/search", isAuthenticated, async (req, res) => {
+  app.post("/api/items/search", async (req, res) => {
     const { query } = req.body;
     
     if (!query || typeof query !== 'string') {
