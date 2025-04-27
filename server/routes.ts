@@ -191,7 +191,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
     res.status(204).send();
   });
   
-  // Product Scraping
+  // Product Searching
   app.post("/api/items/search", async (req, res) => {
     const { query } = req.body;
     
@@ -200,11 +200,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
     
     try {
-      // Scrape product listings with our mock data
-      const listings = await scrapeProductListings(query, 0);
-      res.json(listings);
+      // Import our affiliate service
+      const { AffiliateService } = await import('./services/affiliateService');
+      const affiliateService = new AffiliateService();
+      
+      // Search for products using the affiliate service
+      const products = await affiliateService.searchProducts(query);
+      
+      // Limit to a reasonable number of results (max 20)
+      const limitedResults = products.slice(0, 20);
+      
+      res.json(limitedResults);
     } catch (error) {
-      console.error('Error scraping products:', error);
+      console.error('Error searching products:', error);
       res.status(500).json({ message: "Failed to search for products" });
     }
   });
@@ -218,10 +226,15 @@ export async function registerRoutes(app: Express): Promise<Server> {
         return res.status(404).json({ message: "Item not found" });
       }
       
-      // Scrape data for this item
-      const scrapedProducts = await scrapeProductListings(item.name, item.id);
+      // Import our affiliate service
+      const { AffiliateService } = await import('./services/affiliateService');
+      const affiliateService = new AffiliateService();
+      
+      // Search for products using the affiliate service
+      const scrapedProducts = await affiliateService.searchProducts(item.name);
       
       // Save the products and price history
+      // Here we're reusing the existing savePriceHistory function
       await savePriceHistory(scrapedProducts, item.id);
       
       // Get the updated item
