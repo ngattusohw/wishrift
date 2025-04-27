@@ -79,10 +79,10 @@ const Header = () => {
                 <DropdownMenu>
                   <DropdownMenuTrigger className="flex items-center space-x-2 focus:outline-none">
                     <Avatar className="h-8 w-8">
-                      <AvatarImage src={user.profileImageUrl || ""} alt={user.username} />
-                      <AvatarFallback>{user.username?.[0]?.toUpperCase() || "U"}</AvatarFallback>
+                      <AvatarImage src={user?.profileImageUrl || ""} alt={user?.username || "User"} />
+                      <AvatarFallback>{user?.username?.[0]?.toUpperCase() || "U"}</AvatarFallback>
                     </Avatar>
-                    <span className="hidden md:block font-medium">{user.username}</span>
+                    <span className="hidden md:block font-medium">{user?.username || "User"}</span>
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem>Profile</DropdownMenuItem>
