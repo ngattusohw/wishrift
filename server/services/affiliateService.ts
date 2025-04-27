@@ -33,9 +33,41 @@ export class AffiliateService {
     console.log(`[AffiliateService] Searching for "${query}" across affiliate networks`);
     
     try {
-      // For now, we'll use our demo data generator but structure this
-      // to be easily replaceable with real API calls in the future
-      const results = await this.searchDemoProducts(query);
+      let allResults: ScrapedProduct[] = [];
+      
+      // In production, this would be a series of API calls to different networks
+      // 1. First try affiliate networks (for commission)
+      const rakutenResults = await this.searchRakutenProducts(query);
+      if (rakutenResults.length > 0) {
+        allResults = allResults.concat(rakutenResults);
+      }
+      
+      // 2. Next try direct retailer APIs
+      const amazonResults = await this.searchAmazonProducts(query);
+      if (amazonResults.length > 0) {
+        allResults = allResults.concat(amazonResults);
+      }
+      
+      // 3. If we still don't have enough results, use the demo generator
+      if (allResults.length < 5) {
+        const demoResults = await this.searchDemoProducts(query);
+        allResults = allResults.concat(demoResults);
+      }
+      
+      // Remove duplicates (in a real implementation, we'd need a more sophisticated
+      // deduplication strategy based on product identifiers)
+      const uniqueStores = new Map<string, ScrapedProduct>();
+      allResults.forEach(product => {
+        const key = `${product.name}-${product.store}`;
+        // Keep the lowest priced item if duplicates exist
+        if (!uniqueStores.has(key) || product.price < uniqueStores.get(key)!.price) {
+          uniqueStores.set(key, product);
+        }
+      });
+      
+      // Convert back to array and sort by price
+      const results = Array.from(uniqueStores.values())
+        .sort((a, b) => a.price - b.price);
       
       // Cache the results
       this.cache.set(cacheKey, {
@@ -46,7 +78,8 @@ export class AffiliateService {
       return results;
     } catch (error) {
       console.error('[AffiliateService] Error searching products:', error);
-      return [];
+      // Fall back to demo products in case of error
+      return this.searchDemoProducts(query);
     }
   }
 
@@ -56,7 +89,8 @@ export class AffiliateService {
    */
   private async searchRakutenProducts(query: string): Promise<ScrapedProduct[]> {
     // In production, this would make an API request to Rakuten
-    if (!this.apiKeys.rakuten) {
+    const rakutenApiKey = this.apiKeyService.getApiKey('RAKUTEN_API_KEY');
+    if (!rakutenApiKey) {
       return [];
     }
     
@@ -66,7 +100,7 @@ export class AffiliateService {
       const response = await axios.get('https://api.linksynergy.com/v1/products/search', {
         params: {
           keyword: query,
-          apiKey: this.apiKeys.rakuten,
+          apiKey: rakutenApiKey,
           max: 20,
         }
       });
@@ -95,7 +129,8 @@ export class AffiliateService {
    */
   private async searchAmazonProducts(query: string): Promise<ScrapedProduct[]> {
     // In production, this would make an API request to Amazon
-    if (!this.apiKeys.amazon) {
+    const amazonApiKey = this.apiKeyService.getApiKey('AMAZON_API_KEY');
+    if (!amazonApiKey) {
       return [];
     }
     
@@ -106,7 +141,7 @@ export class AffiliateService {
         params: {
           Keywords: query,
           PartnerTag: 'your-associate-tag',
-          AccessKey: this.apiKeys.amazon,
+          AccessKey: amazonApiKey,
           // Other required params...
         }
       });
@@ -229,7 +264,10 @@ export class AffiliateService {
    * @param keys Object containing API keys for different networks
    */
   setApiKeys(keys: Record<string, string>) {
-    this.apiKeys = { ...this.apiKeys, ...keys };
+    // Forward to the ApiKeyService
+    for (const [key, value] of Object.entries(keys)) {
+      this.apiKeyService.setApiKey(key, value);
+    }
   }
   
   /**
